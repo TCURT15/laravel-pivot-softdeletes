@@ -24,6 +24,13 @@ class BelongsToManySoft extends BelongsToMany
     public $withSoftDeletes = false;
 
     /**
+     * Indicates if we should only return soft deletes
+     *
+     * @var bool
+     */
+    public $onlyTrashed = false;
+
+    /**
      * The custom pivot table column for the deleted_at timestamp.
      *
      * @var string
@@ -78,12 +85,16 @@ class BelongsToManySoft extends BelongsToMany
         });
 
         $this->macro('withTrashedPivots', function () {
+            $this->withSoftDeletes = false;
+
             $this->query->withoutGlobalScopes(['withoutTrashedPivots', 'onlyTrashedPivots']);
 
             return $this;
         });
 
         $this->macro('onlyTrashedPivots', function () {
+            $this->onlyTrashed = true;
+
             $this->query->withGlobalScope('onlyTrashedPivots', function (Builder $query) {
                 $query->whereNotNull(
                     $this->getQualifiedDeletedAtColumnName()
@@ -131,10 +142,13 @@ class BelongsToManySoft extends BelongsToMany
 
         $query->join($this->table, $key, '=', $this->getQualifiedRelatedPivotKeyName());
 
-        $query->when($this->withSoftDeletes, function (Builder $query) {
-            $query->whereNull($this->getQualifiedDeletedAtColumnName());
-        });
-
+        if ($this->withSoftDeletes) {
+            if ($this->onlyTrashed) {
+                $query->whereNotNull($this->getQualifiedDeletedAtColumnName());
+            } else {
+                $query->whereNull($this->getQualifiedDeletedAtColumnName());
+            }
+        }
         return $this;
     }
 }
